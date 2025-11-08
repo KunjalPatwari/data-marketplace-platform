@@ -18,6 +18,7 @@
         .sidebar .nav-links a.home { margin-top: 2rem; border-top: 1px solid #495057; padding-top: 1rem; }
         .content { flex: 1; padding: 2rem 3rem; }
         h1 { font-weight: 700; color: #212529; margin-top: 0; }
+        h2 { font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 8px; margin-top: 2.5rem; }
         .item-list { list-style: none; padding: 0; }
         .item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1.5rem; }
         .item-header { display: flex; justify-content: space-between; align-items: center; }
@@ -31,7 +32,11 @@
         .btn-success:hover { background-color: #218838; }
         .btn-danger { background-color: #dc3545; color: white; }
         .btn-danger:hover { background-color: #c82333; }
-        .no-items { color: #6c757d; font-size: 1.1em; text-align: center; padding: 3rem; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; }
+        .no-items { color: #6c757d; font-size: 1.1em; }
+        .readonly-item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1rem 1.5rem; }
+        .readonly-item span { font-weight: 600; color: #212529; }
+        .readonly-item.rejected span { color: #dc3545; text-decoration: line-through; }
+        .readonly-item.live span { color: #28a745; }
     </style>
 </head>
 <body>
@@ -45,10 +50,12 @@
             </ul>
         </div>
         <div class="content">
-            <h1>Pending Topic Requests</h1>
-            {% if topics %}
+            <h1>Topic Dashboard</h1>
+
+            <h2>Pending Topic Requests</h2>
+            {% if pending_topics %}
                 <ul class="item-list">
-                    {% for topic in topics %}
+                    {% for topic in pending_topics %}
                     <li class="item">
                         <div class="item-header">
                             <div class="item-info">
@@ -75,6 +82,38 @@
             {% else %}
                 <p class="no-items">No pending topic requests.</p>
             {% endif %}
+
+            <h2>Live Topics (Approved or Active)</h2>
+            {% if live_topics %}
+                <ul class="item-list">
+                    {% for topic in live_topics %}
+                    <li class="readonly-item live">
+                        <span>{{ topic.topic_name }}</span> (Status: {{ topic.status }})
+                        <div class="recipe-details" style="margin-top: 10px;">
+                            File: <code>{{ topic.source_file }}</code> |
+                            Column: <code>{{ topic.source_column }}</code> |
+                            Key: <code>{{ topic.output_key }}</code>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-items">No topics are currently live.</p>
+            {% endif %}
+
+            <h2>Rejected Topics</h2>
+            {% if rejected_topics %}
+                <ul class="item-list">
+                    {% for topic in rejected_topics %}
+                    <li class="readonly-item rejected">
+                        <span>{{ topic.topic_name }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-items">No topics have been rejected.</p>
+            {% endif %}
+
         </div>
     </div>
 </body>

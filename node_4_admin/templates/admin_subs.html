@@ -18,6 +18,7 @@
         .sidebar .nav-links a.home { margin-top: 2rem; border-top: 1px solid #495057; padding-top: 1rem; }
         .content { flex: 1; padding: 2rem 3rem; }
         h1 { font-weight: 700; color: #212529; margin-top: 0; }
+        h2 { font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 8px; margin-top: 2.5rem; }
         .item-list { list-style: none; padding: 0; }
         .item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
         .item-info { color: #495057; }
@@ -28,7 +29,11 @@
         .btn-success:hover { background-color: #218838; }
         .btn-danger { background-color: #dc3545; color: white; }
         .btn-danger:hover { background-color: #c82333; }
-        .no-items { color: #6c757d; font-size: 1.1em; text-align: center; padding: 3rem; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; }
+        .no-items { color: #6c757d; font-size: 1.1em; }
+        .readonly-item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1rem 1.5rem; }
+        .readonly-item span { font-weight: 600; color: #212529; }
+        .readonly-item.rejected span { color: #dc3545; text-decoration: line-through; }
+        .readonly-item.approved span { color: #28a745; }
     </style>
 </head>
 <body>
@@ -42,10 +47,12 @@
             </ul>
         </div>
         <div class="content">
-            <h1>Pending Subscription Requests</h1>
-            {% if subscriptions %}
+            <h1>Subscription Dashboard</h1>
+
+            <h2>Pending Subscription Requests</h2>
+            {% if pending_subs %}
                 <ul class="item-list">
-                    {% for sub in subscriptions %}
+                    {% for sub in pending_subs %}
                     <li class="item">
                         <div class="item-info">
                             Subscription request for: <span>{{ sub.topic_name }}</span>
@@ -64,6 +71,33 @@
             {% else %}
                 <p class="no-items">No pending subscription requests.</p>
             {% endif %}
+
+            <h2>Approved Subscriptions</h2>
+            {% if approved_subs %}
+                <ul class="item-list">
+                    {% for sub in approved_subs %}
+                    <li class="readonly-item approved">
+                        Subscription for: <span>{{ sub.topic_name }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-items">No subscriptions are currently approved.</p>
+            {% endif %}
+
+            <h2>Rejected Subscriptions</h2>
+            {% if rejected_subs %}
+                <ul class="item-list">
+                    {% for sub in rejected_subs %}
+                    <li class="readonly-item rejected">
+                        Subscription for: <span>{{ sub.topic_name }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-items">No subscriptions have been rejected.</p>
+            {% endif %}
+
         </div>
     </div>
 </body>

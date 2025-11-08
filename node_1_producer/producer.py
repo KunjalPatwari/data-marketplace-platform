@@ -121,7 +121,7 @@ def topic_watcher_thread():
                 new_topics_to_create = []
                 for topic in approved_topics:
                     new_topics_to_create.append(
-                        NewTopic(name=topic['product_name'], num_partitions=1, replication_factor=1)
+                        NewTopic(name=topic['topic_name'], num_partitions=1, replication_factor=1)
                     )
                 
                 # Create topics in Kafka
@@ -133,7 +133,7 @@ def topic_watcher_thread():
                 
                 # Update DB status to 'active'
                 for topic in approved_topics:
-                    cursor.execute("UPDATE topics SET status = 'active' WHERE id = %s", (topic['id'],))
+                    cursor.execute("UPDATE topics SET status = 'active' WHERE topic_id = %s", (topic['topic_id'],))
                 db_conn.commit()
 
             # --- JOB 2: Build the Routing Map ---
@@ -143,7 +143,7 @@ def topic_watcher_thread():
             for product in active_products:
                 file = product['source_file'] # e.g., "AAPL.csv"
                 rule = {
-                    "topic": product['product_name'],
+                    "topic": product['topic_name'],
                     "source_col": product['source_column'],
                     "out_key": product['output_key']
                 }
@@ -206,12 +206,13 @@ def publisher_thread():
             # 3. Apply all rules for this file
             if rules_for_this_file:
                 for rule in rules_for_this_file:
-                    # e.g., rule = {"topic": "analytics-aapl-rsi", "source_col": "RSI_14", ...}
+                    # e.g., rule = {"topic": "analytics-aapl-rsi", "source_col": "RSI", ...}
                     
                     # 4. Dynamically build the message
                     # Use .get() for safety, in case a column is missing
+                    symbol_from_file = source_file.split('.')[0].upper()
                     message = {
-                        "symbol": data_row.get('Symbol'),
+                        "symbol":symbol_from_file,
                         "date": data_row.get('Date'),
                         rule['out_key']: data_row.get(rule['source_col'])
                     }

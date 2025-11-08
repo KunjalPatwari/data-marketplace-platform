@@ -19,7 +19,7 @@ The following properties were modified or added:
   * **`advertised.listeners`**: This is the most critical setting for a multi-node setup. It tells the broker to announce its public ZeroTier IP (e.g., `192.168.196.128`) to all clients. Without this, the Producer and Consumer nodes would be told to connect to `localhost` and fail.
 
     ```properties
-    advertised.listeners=PLAINTEXT://192.168.196.128:9092,CONTROLLER://192.168.196.128:9093
+    advertised.listeners=PLAINTEXT://<YOUR_ZEROTIER_IP_HERE>:9092,CONTROLLER://<YOUR_ZEROTIER_IP_HERE>:9093
     ```
     *(Note: The IP address in `advertised.listeners` must be changed to match the broker's current ZeroTier IP.)*
 

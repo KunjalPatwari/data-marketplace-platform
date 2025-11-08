@@ -1,8 +1,5 @@
 # Node 2: Kafka Broker (Quant Model & Provisioning Service)
 
-**Author:** Vishal
-**Role:** Broker
-
 ## Overview
 
 This component is the central Kafka Broker (Node 2) for the "Internal Quant Analytics Marketplace." It serves as the high-throughput, reliable data pipeline connecting all other nodes.
@@ -24,7 +21,7 @@ The following properties were modified or added:
     ```properties
     advertised.listeners=PLAINTEXT://192.168.196.128:9092,CONTROLLER://192.168.196.128:9093
     ```
-*(Note: The IP address in `advertised.listeners` must be changed to match the broker's current ZeroTier IP.)*
+    *(Note: The IP address in `advertised.listeners` must be changed to match the broker's current ZeroTier IP.)*
 
   * **`listeners`**: This binds the broker to all available network interfaces (`0.0.0.0`), allowing it to accept connections from the ZeroTier adapter and not just from the local machine.
 

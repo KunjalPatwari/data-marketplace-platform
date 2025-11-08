@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Product Marketplace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; margin: 0; background-color: #f8f9fa; color: #343a40; }
+        .navbar { background-color: #ffffff; border-bottom: 1px solid #dee2e6; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .navbar .logo { font-size: 1.5rem; font-weight: 700; color: #007bff; text-decoration: none; }
+        .navbar .nav-links a { color: #495057; text-decoration: none; font-weight: 500; padding: 8px 12px; border-radius: 5px; }
+        .navbar .nav-links a:hover { background-color: #f1f3f5; }
+        .navbar .nav-links a.cta { background-color: #007bff; color: #ffffff; }
+        .navbar .nav-links a.cta:hover { background-color: #0056b3; }
+        .container { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+        h1 { font-weight: 700; color: #212529; margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.15rem; color: #6c757d; margin-bottom: 2.5rem; }
+        .product-list { list-style: none; padding: 0; }
+        .product-item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; transition: box-shadow 0.2s; }
+        .product-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .product-info span { font-weight: 600; font-size: 1.25rem; color: #007bff; }
+        .btn { border: none; padding: 0.75rem 1.25rem; border-radius: 5px; cursor: pointer; text-decoration: none; font-size: 0.95rem; font-weight: 500; transition: all 0.2s; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-success:hover { background-color: #218838; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .btn-secondary:hover { background-color: #5a6268; }
+        .no-products { color: #6c757d; font-size: 1.1em; text-align: center; padding: 3rem; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; }
+        .status-badge { padding: 0.75rem 1.25rem; border-radius: 5px; font-weight: 600; text-align: center; }
+        .status-approved { background-color: #eafaea; color: #218838; }
+        .status-pending { background-color: #fff9e6; color: #ff9800; }
+        .status-rejected { background-color: #fbeaea; color: #c82333; } /* Corrected CSS from before */
+        .action-group { display: flex; gap: 10px; align-items: center; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/" class="logo">Data Marketplace</a>
+        <div class="nav-links">
+            <a href="/register" class="cta">Register a Product</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Active Data Products</h1>
+        <p class="subtitle">Browse all approved and active data streams available for subscription.</p>
+        
+        <ul class="product-list">
+            {% if products %}
+                {% for product in products %}
+                    <li class="product-item">
+                        <div class="product-info">
+                            <span>{{ product.topic_name }}</span>
+                        </div>
+                        <div class="action-group">
+                            
+                            {% if product.subscription_status == 'approved' %}
+                                <span class="status-badge status-approved">✅ Subscribed</span>
+                                {% elif product.subscription_status == 'pending' %}
+                                <span class="status-badge status-pending">⏳ Pending Approval</span>
+                                <a href="/subscription_status" class="btn btn-secondary">Check Status</a>
+
+                            {% elif product.subscription_status == 'rejected' %}
+                                <span class="status-badge status-rejected">❌ Rejected</span>
+                                <a href="/subscribe/{{ product.topic_id }}" class="btn btn-success">Subscribe Again</a>
+                            
+                            {% else %} <a href="/subscribe/{{ product.topic_id }}" class="btn btn-success">Subscribe</a>
+                            {% endif %}
+                        </div>
+                    </li>
+                {% endfor %}
+            {% else %}
+                <p class="no-products">No active products in the marketplace right now. Check back soon!</p>
+            {% endif %}
+        </ul>
+    </div>
+</body>
+</html>

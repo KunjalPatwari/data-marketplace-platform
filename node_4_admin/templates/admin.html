@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Approve Topics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; margin: 0; background-color: #f8f9fa; color: #343a40; }
+        .admin-layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 250px; background-color: #343a40; color: white; padding: 1.5rem; }
+        .sidebar .logo { font-size: 1.5rem; font-weight: 700; color: #ffffff; text-decoration: none; margin-bottom: 2rem; display: block; }
+        .sidebar .nav-links { list-style: none; padding: 0; margin: 0; }
+        .sidebar .nav-links li { margin-bottom: 0.5rem; }
+        .sidebar .nav-links a { color: #adb5bd; text-decoration: none; display: block; padding: 0.75rem 1rem; border-radius: 5px; font-weight: 500; }
+        .sidebar .nav-links a.active { background-color: #007bff; color: white; }
+        .sidebar .nav-links a:hover { background-color: #495057; color: white; }
+        .sidebar .nav-links a.home { margin-top: 2rem; border-top: 1px solid #495057; padding-top: 1rem; }
+        .content { flex: 1; padding: 2rem 3rem; }
+        h1 { font-weight: 700; color: #212529; margin-top: 0; }
+        h2 { font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 8px; margin-top: 2.5rem; }
+        .item-list { list-style: none; padding: 0; }
+        .item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1.5rem; }
+        .item-header { display: flex; justify-content: space-between; align-items: center; }
+        .item-info { color: #495057; }
+        .item-info span { font-weight: 600; font-size: 1.25rem; color: #007bff; }
+        .recipe-details { background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 5px; padding: 1rem; margin-top: 1.5rem; }
+        .recipe-details code { background-color: #e9ecef; color: #343a40; padding: 3px 6px; border-radius: 4px; font-family: monospace; }
+        .button-group { display: flex; gap: 10px; }
+        .btn { border: none; padding: 0.6rem 1rem; border-radius: 5px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-success:hover { background-color: #218838; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-danger:hover { background-color: #c82333; }
+        .no-items { color: #6c757d; font-size: 1.1em; }
+        .readonly-item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1rem 1.5rem; }
+        .readonly-item span { font-weight: 600; color: #212529; }
+        .readonly-item.rejected span { color: #dc3545; text-decoration: line-through; }
+        .readonly-item.live span { color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <div class="sidebar">
+            <a href="/" class="logo">Admin Panel</a>
+            <ul class="nav-links">
+                <li><a href="/admin" class="active">Approve Topics</a></li>
+                <li><a href="/admin/subscriptions">Approve Subscriptions</a></li>
+                <li><a href="/" class="home">Back to Marketplace</a></li>
+            </ul>
+        </div>
+        <div class="content">
+            <h1>Topic Dashboard</h1>
+
+            <h2>Pending Topic Requests</h2>
+            {% if pending_topics %}
+                <ul class="item-list">
+                    {% for topic in pending_topics %}
+                    <li class="item">
+                        <div class="item-header">
+                            <div class="item-info">
+                                <span>{{ topic.topic_name }}</span>
+                            </div>
+                            <div class="button-group">
+                                <form action="/approve/{{ topic.topic_id }}" method="POST" style="margin:0;">
+                                    <button type="submit" class="btn btn-success">Approve</button>
+                                </form>
+                                <form action="/reject_topic/{{ topic.topic_id }}" method="POST" style="margin:0;">
+                                    <button type="submit" class="btn btn-danger">Reject</button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="recipe-details">
+                            <strong>Routing Logic (Recipe):</strong><br>
+                            File: <code>{{ topic.source_file }}</code> &rarr;
+                            Column: <code>{{ topic.source_column }}</code> &rarr;
+                            Key: <code>{{ topic.output_key }}</code>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-items">No pending topic requests.</p>
+            {% endif %}
+
+            <h2>Live Topics (Approved or Active)</h2>
+            {% if live_topics %}
+                <ul class="item-list">
+                    {% for topic in live_topics %}
+                    <li class="readonly-item live">
+                        <span>{{ topic.topic_name }}</span> (Status: {{ topic.status }})
+                        <div class="recipe-details" style="margin-top: 10px;">
+                            File: <code>{{ topic.source_file }}</code> |
+                            Column: <code>{{ topic.source_column }}</code> |
+                            Key: <code>{{ topic.output_key }}</code>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-items">No topics are currently live.</p>
+            {% endif %}
+
+            <h2>Rejected Topics</h2>
+            {% if rejected_topics %}
+                <ul class="item-list">
+                    {% for topic in rejected_topics %}
+                    <li class="readonly-item rejected">
+                        <span>{{ topic.topic_name }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-items">No topics have been rejected.</p>
+            {% endif %}
+
+        </div>
+    </div>
+</body>
+</html>

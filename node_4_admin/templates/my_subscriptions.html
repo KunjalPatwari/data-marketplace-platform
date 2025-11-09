@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Subscriptions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; margin: 0; background-color: #f8f9fa; color: #343a40; }
+        .navbar { background-color: #ffffff; border-bottom: 1px solid #dee2e6; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .navbar .logo { font-size: 1.5rem; font-weight: 700; color: #007bff; text-decoration: none; }
+        .navbar .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+        .navbar .nav-links a { color: #495057; text-decoration: none; font-weight: 500; padding: 8px 12px; border-radius: 5px; }
+        .navbar .nav-links a:hover { background-color: #f1f3f5; }
+        .navbar .nav-links a.active { background-color: #f1f3f5; }
+        .container { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+        h1 { font-weight: 700; color: #212529; margin-top: 0; }
+        h2 { font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 8px; margin-top: 2.5rem; }
+        .item-list { list-style: none; padding: 0; }
+        
+        /* --- CSS FIX WAS HERE --- */
+        .readonly-item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+        
+        .readonly-item span { font-weight: 600; }
+        .readonly-item .status-badge { padding: 0.5rem 1rem; border-radius: 5px; font-weight: 600; text-align: center; }
+        .status-approved { color: #28a745; }
+        .badge-approved { background-color: #eafaea; color: #218838; }
+        .status-pending { color: #ffc107; }
+        .badge-pending { background-color: #fff9e6; color: #ff9800; }
+        .status-rejected { color: #dc3545; text-decoration: line-through; }
+        .badge-rejected { background-color: #fbeaea; color: #c82333; }
+        .no-items { color: #6c757d; font-size: 1.1em; }
+        .api-info { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 1.5rem; margin-top: 1rem; text-align: left; }
+        .api-info p { font-size: 1rem; margin-top: 0; }
+        .api-info code { background-color: #e9ecef; color: #343a40; padding: 3px 6px; border-radius: 4px; font-family: monospace; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/" class="logo">Data Marketplace</a>
+        <div class="nav-links">
+            <a href="/" >Marketplace</a>
+            <a href="/my_subscriptions" class="active">My Subscriptions</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>My Subscription Status</h1>
+
+        <h2>Active Subscriptions</h2>
+        {% if approved_subs %}
+            <div class="api-info">
+                <p><strong>Your Consumer API Link:</strong></p>
+                <p>Your script should poll this URL to get its topic list:</p>
+                <code>http://192.168.196.197:5000/api/subscriptions</code>
+            </div>
+            <ul class="item-list" style="margin-top: 1.5rem;">
+                {% for sub in approved_subs %}
+                <li class="readonly-item">
+                    <span class="status-approved">{{ sub.topic_name }}</span>
+                    <span class="status-badge badge-approved">✅ Approved</span>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="no-items">You have no active subscriptions.</p>
+        {% endif %}
+
+        <h2>Pending Approval</h2>
+        {% if pending_subs %}
+            <ul class="item-list">
+                {% for sub in pending_subs %}
+                <li class="readonly-item">
+                    <span class="status-pending">{{ sub.topic_name }}</span>
+                    <span class="status-badge badge-pending">⏳ Pending</span>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="no-items">You have no subscriptions pending approval.</p>
+        {% endif %}
+
+        <h2>Rejected Subscriptions</h2>
+        {% if rejected_subs %}
+            <ul class="item-list">
+                {% for sub in rejected_subs %}
+                <li class="readonly-item">
+                    <span class="status-rejected">{{ sub.topic_name }}</span>
+                    <span class="status-badge badge-rejected">❌ Rejected</span>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="no-items">No subscriptions have been rejected.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Approve Subscriptions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; margin: 0; background-color: #f8f9fa; color: #343a40; }
+        .admin-layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 250px; background-color: #343a40; color: white; padding: 1.5rem; }
+        .sidebar .logo { font-size: 1.5rem; font-weight: 700; color: #ffffff; text-decoration: none; margin-bottom: 2rem; display: block; }
+        .sidebar .nav-links { list-style: none; padding: 0; margin: 0; }
+        .sidebar .nav-links li { margin-bottom: 0.5rem; }
+        .sidebar .nav-links a { color: #adb5bd; text-decoration: none; display: block; padding: 0.75rem 1rem; border-radius: 5px; font-weight: 500; }
+        .sidebar .nav-links a.active { background-color: #007bff; color: white; }
+        .sidebar .nav-links a:hover { background-color: #495057; color: white; }
+        .sidebar .nav-links a.home { margin-top: 2rem; border-top: 1px solid #495057; padding-top: 1rem; }
+        .content { flex: 1; padding: 2rem 3rem; }
+        h1 { font-weight: 700; color: #212529; margin-top: 0; }
+        h2 { font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 8px; margin-top: 2.5rem; }
+        .item-list { list-style: none; padding: 0; }
+        .item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .item-info { color: #495057; }
+        .item-info span { font-weight: 600; color: #007bff; }
+        .button-group { display: flex; gap: 10px; }
+        .btn { border: none; padding: 0.6rem 1rem; border-radius: 5px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-success:hover { background-color: #218838; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-danger:hover { background-color: #c82333; }
+        .no-items { color: #6c757d; font-size: 1.1em; }
+        .readonly-item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1rem 1.5rem; }
+        .readonly-item span { font-weight: 600; color: #212529; }
+        .readonly-item.rejected span { color: #dc3545; text-decoration: line-through; }
+        .readonly-item.approved span { color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <div class="sidebar">
+            <a href="/" class="logo">Admin Panel</a>
+            <ul class="nav-links">
+                <li><a href="/admin">Approve Topics</a></li>
+                <li><a href="/admin/subscriptions" class="active">Approve Subscriptions</a></li>
+                <li><a href="/" class="home">Back to Marketplace</a></li>
+            </ul>
+        </div>
+        <div class="content">
+            <h1>Subscription Dashboard</h1>
+
+            <h2>Pending Subscription Requests</h2>
+            {% if pending_subs %}
+                <ul class="item-list">
+                    {% for sub in pending_subs %}
+                    <li class="item">
+                        <div class="item-info">
+                            Subscription request for: <span>{{ sub.topic_name }}</span>
+                        </div>
+                        <div class="button-group">
+                            <form action="/approve_subscription/{{ sub.subscription_id }}" method="POST" style="margin:0;">
+                                <button type="submit" class="btn btn-success">Approve</button>
+                            </form>
+                            <form action="/reject_subscription/{{ sub.subscription_id }}" method="POST" style="margin:0;">
+                                <button type="submit" class="btn btn-danger">Reject</button>
+                            </form>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-items">No pending subscription requests.</p>
+            {% endif %}
+
+            <h2>Approved Subscriptions</h2>
+            {% if approved_subs %}
+                <ul class="item-list">
+                    {% for sub in approved_subs %}
+                    <li class="readonly-item approved">
+                        Subscription for: <span>{{ sub.topic_name }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-items">No subscriptions are currently approved.</p>
+            {% endif %}
+
+            <h2>Rejected Subscriptions</h2>
+            {% if rejected_subs %}
+                <ul class="item-list">
+                    {% for sub in rejected_subs %}
+                    <li class="readonly-item rejected">
+                        Subscription for: <span>{{ sub.topic_name }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-items">No subscriptions have been rejected.</p>
+            {% endif %}
+
+        </div>
+    </div>
+</body>
+</html>

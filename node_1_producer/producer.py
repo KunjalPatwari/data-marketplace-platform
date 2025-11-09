@@ -84,7 +84,8 @@ def topic_watcher_thread():
     - Connects to the central DB (Node 4).
     - JOB 1: Finds 'approved' topics, creates them in Kafka (Node 2) via AdminClient,
       and updates their status in the DB to 'active'.
-    - JOB 2: Builds the "routing_map" from *all* 'active' topics and shares it
+    - JOB 2: Reconciles DB state with the broker (Create missing, Delete extra).
+    - JOB 3: Builds the "routing_map" from *all* 'active' topics and shares it
       with the publisher thread.
     """
     print("[Watcher Thread] Started. Polling database...")
@@ -120,6 +121,7 @@ def topic_watcher_thread():
                 print(f"[Watcher Thread] Found {len(approved_topics)} topics to provision...")
                 new_topics_to_create = []
                 for topic in approved_topics:
+                    # Use 'topic_name' (from your DB schema)
                     new_topics_to_create.append(
                         NewTopic(name=topic['topic_name'], num_partitions=1, replication_factor=1)
                     )
@@ -133,13 +135,66 @@ def topic_watcher_thread():
                 
                 # Update DB status to 'active'
                 for topic in approved_topics:
+                    # Use 'topic_id' (from your DB schema)
                     cursor.execute("UPDATE topics SET status = 'active' WHERE topic_id = %s", (topic['topic_id'],))
                 db_conn.commit()
 
-            # --- JOB 2: Build the Routing Map ---
+            # --- JOB 2: Reconcile Broker State with DB ---
+            
+            # 1. Get ALL 'active' topic names from our database
             cursor.execute("SELECT * FROM topics WHERE status = 'active'")
             active_products = cursor.fetchall()
+            db_topic_names = {p['topic_name'] for p in active_products}
+            
+            # --- !! START OF FIX !! ---
+            
+            # 2. Get ALL *real, non-internal* topic names from the broker
+            # admin_client.list_topics() returns a LIST of strings, not a dict.
+            broker_topic_list = admin_client.list_topics() 
+            broker_topic_names = set()
+            for topic_name in broker_topic_list:
+                # We check for internal topics by their name prefix
+                if not topic_name.startswith('__'):
+                    broker_topic_names.add(topic_name)
 
+            # --- !! END OF FIX !! ---
+
+            # --- [RECONCILE PART A: CREATE MISSING TOPICS] ---
+            # Find topics that are 'active' in DB but NOT on the broker
+            missing_topics = db_topic_names - broker_topic_names
+            
+            if missing_topics:
+                print(f"[Watcher Thread] RECONCILIATION: Found {len(missing_topics)} topics in DB but missing from broker. Re-creating...")
+                new_topics_to_recreate = []
+                for topic_name in missing_topics:
+                    new_topics_to_recreate.append(NewTopic(name=topic_name, num_partitions=1, replication_factor=1))
+                
+                try:
+                    admin_client.create_topics(new_topics=new_topics_to_recreate, validate_only=False)
+                except TopicAlreadyExistsError:
+                    pass # Fine, a race condition occurred
+                except Exception as e:
+                     print(f"[Watcher Thread] Reconciliation create failed: {e}")
+
+            # --- [RECONCILE PART B: DELETE EXTRA TOPICS] ---
+            # Find topics that are on the broker but NOT 'active' in our DB
+            extra_topics = broker_topic_names - db_topic_names
+            
+            if extra_topics:
+                print(f"[Watcher Thread] CLEANUP: Found {len(extra_topics)} topics on broker that are not 'active' in DB. Deleting...")
+                
+                # We need to convert the set to a list of strings
+                topics_to_delete = list(extra_topics)
+                
+                try:
+                    # This is the command to delete topics
+                    admin_client.delete_topics(topics=topics_to_delete)
+                    print(f"[Watcher Thread] Successfully deleted: {topics_to_delete}")
+                except Exception as e:
+                    print(f"[Watcher Thread] Failed to delete topics: {e}")
+
+            # --- JOB 3: Build the Routing Map ---
+            # (This uses the 'active_products' list we fetched earlier)
             for product in active_products:
                 file = product['source_file'] # e.g., "AAPL.csv"
                 rule = {

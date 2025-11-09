@@ -34,9 +34,11 @@
         .btn-danger:hover { background-color: #c82333; }
         .no-items { color: #6c757d; font-size: 1.1em; }
         .readonly-item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1rem 1.5rem; }
-        .readonly-item span { font-weight: 600; color: #212529; }
         .readonly-item.rejected span { color: #dc3545; text-decoration: line-through; }
-        .readonly-item.live span { color: #28a745; }
+        
+        /* UPDATED: Styles for the new "Live Item" layout */
+        .live-item { display: flex; justify-content: space-between; align-items: center; }
+        .live-item-info span { font-weight: 600; color: #28a745; } /* Green color for live */
     </style>
 </head>
 <body>
@@ -87,8 +89,15 @@
             {% if live_topics %}
                 <ul class="item-list">
                     {% for topic in live_topics %}
-                    <li class="readonly-item live">
-                        <span>{{ topic.topic_name }}</span> (Status: {{ topic.status }})
+                    <li class="item">
+                        <div class="live-item">
+                            <div class="live-item-info">
+                                <span>{{ topic.topic_name }}</span> (Status: {{ topic.status }})
+                            </div>
+                            <form action="/reject_topic/{{ topic.topic_id }}" method="POST" style="margin:0;">
+                                <button type="submit" class="btn btn-danger">Deactivate</button>
+                            </form>
+                        </div>
                         <div class="recipe-details" style="margin-top: 10px;">
                             File: <code>{{ topic.source_file }}</code> |
                             Column: <code>{{ topic.source_column }}</code> |
@@ -101,7 +110,7 @@
                 <p class="no-items">No topics are currently live.</p>
             {% endif %}
 
-            <h2>Rejected Topics</h2>
+            <h2>Rejected / Deactivated Topics</h2>
             {% if rejected_topics %}
                 <ul class="item-list">
                     {% for topic in rejected_topics %}

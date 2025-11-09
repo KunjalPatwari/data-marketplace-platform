@@ -2,17 +2,16 @@ from flask import Flask, render_template, request, redirect, url_for, session
 import mysql.connector
 from mysql.connector import errorcode
 import os 
-from dotenv import load_dotenv # <-- 1. Import load_dotenv
+from dotenv import load_dotenv
 
 # --- LOAD ENVIRONMENT VARIABLES ---
-load_dotenv() # <-- 2. Call this to load the .env file
+load_dotenv() 
 
 # --- FLASK APP SETUP ---
 app = Flask(__name__)
 app.secret_key = os.urandom(24) 
 
 # --- YOUR DATABASE CONFIGURATION (NOW SECURE) ---
-# 3. Read everything from os.getenv()
 DB_CONFIG = {
     'user': os.getenv('DB_USER'),
     'password': os.getenv('DB_PASS'),
@@ -33,9 +32,6 @@ def get_db_connection():
 # --- HOME PAGE / MARKETPLACE ROUTE ---
 @app.route("/")
 def marketplace():
-    """
-    Displays all ACTIVE topics. This is the 'dumb' public storefront.
-    """
     active_products = []
     cnx = get_db_connection()
     if cnx:
@@ -43,7 +39,6 @@ def marketplace():
         query = "SELECT topic_id, topic_name FROM topics WHERE status = 'active'"
         cursor.execute(query)
         active_products = cursor.fetchall()
-        
         cursor.close()
         cnx.close()
     
@@ -116,12 +111,11 @@ def subscribe_to_topic(topic_id):
         else:
             return "This product is not available for subscription.", 404
 
-# --- *** UPDATED *** CONSUMER DASHBOARD PAGE ---
+# --- CONSUMER DASHBOARD PAGE (*** UPDATED ***) ---
 @app.route("/my_subscriptions")
 def my_subscriptions():
     """
-    This is the consumer's dedicated dashboard.
-    It shows their LATEST pending, approved, and rejected subscriptions.
+    Shows the consumer their LATEST pending, approved, and rejected subscriptions.
     """
     pending_subs = []
     approved_subs = []
@@ -130,11 +124,9 @@ def my_subscriptions():
     cnx = get_db_connection()
     if cnx:
         cursor = cnx.cursor(dictionary=True)
-        # THIS IS THE NEW, SMARTER QUERY.
-        # It finds the *most recent* subscription for each topic
-        # and joins to get only that single, latest status.
+        # UPDATED QUERY: We now also fetch S.subscription_id to allow unsubscribing
         query = """
-            SELECT T.topic_name, S.status
+            SELECT T.topic_name, S.status, S.subscription_id
             FROM user_subscriptions AS S
             JOIN topics AS T ON S.topic_id = T.topic_id
             INNER JOIN (
@@ -149,7 +141,6 @@ def my_subscriptions():
             cursor.execute(query)
             all_subs = cursor.fetchall()
             
-            # Sort all subscriptions into three lists
             for sub in all_subs:
                 if sub['status'] == 'pending':
                     pending_subs.append(sub)
@@ -163,14 +154,40 @@ def my_subscriptions():
         
         except mysql.connector.Error as err:
             print(f"my_subscriptions error: {err}")
-            cursor.close()
-            cnx.close()
-
+            if cursor: cursor.close()
+            if cnx: cnx.close()
     
     return render_template('my_subscriptions.html', 
                            pending_subs=pending_subs,
                            approved_subs=approved_subs,
                            rejected_subs=rejected_subs)
+
+
+# --- *** NEW *** CONSUMER UNSUBSCRIBE ROUTE ---
+@app.route("/unsubscribe/<int:subscription_id>", methods=['POST'])
+def unsubscribe(subscription_id):
+    """
+    Deletes a subscription record.
+    This allows a consumer to "unsubscribe".
+    """
+    cnx = get_db_connection()
+    if cnx:
+        try:
+            cursor = cnx.cursor()
+            # We simply delete the subscription.
+            query = "DELETE FROM user_subscriptions WHERE subscription_id = %s"
+            cursor.execute(query, (subscription_id,))
+            cnx.commit()
+            print(f"Subscription {subscription_id} deleted (unsubscribed).")
+            cursor.close()
+            cnx.close()
+        except mysql.connector.Error as err:
+            print(f"Error unsubscribing: {err}")
+            if cursor: cursor.close()
+            if cnx: cnx.close()
+    
+    # Send them back to their dashboard to see the change
+    return redirect(url_for('my_subscriptions'))
 
 
 # --- API ENDPOINT FOR CONSUMER SCRIPT (NODE 3) ---
@@ -229,7 +246,7 @@ def admin_dashboard():
                            live_topics=live_topics, 
                            rejected_topics=rejected_topics)
     
-# --- (All Admin Approve/Reject routes remain the same) ---
+# --- APPROVE TOPIC ROUTE ---
 @app.route("/approve/<int:topic_id>", methods=['POST'])
 def approve_topic(topic_id):
     cnx = get_db_connection()
@@ -242,18 +259,29 @@ def approve_topic(topic_id):
         cnx.close()
     return redirect(url_for('admin_dashboard'))
 
+# --- REJECT/DEACTIVATE TOPIC ROUTE (*** UPDATED NAME FOR CLARITY ***) ---
+# This route now handles BOTH rejecting a pending topic
+# AND deactivating a live topic.
 @app.route("/reject_topic/<int:topic_id>", methods=['POST'])
 def reject_topic(topic_id):
+    """Updates a topic's status to 'rejected'."""
     cnx = get_db_connection()
     if cnx:
         cursor = cnx.cursor()
         query = "UPDATE topics SET status = 'rejected' WHERE topic_id = %s"
-        cursor.execute(query, (topic_id,))
-        cnx.commit()
+        try:
+            cursor.execute(query, (topic_id,))
+            cnx.commit()
+            print(f"Topic {topic_id} REJECTED/DEACTIVATED!")
+        except mysql.connector.Error as err:
+            print(f"Error rejecting topic: {err}")
+        
         cursor.close()
         cnx.close()
+    
     return redirect(url_for('admin_dashboard'))
 
+# --- ADMIN SUBSCRIPTION APPROVAL ROUTES ---
 @app.route("/admin/subscriptions")
 def admin_subscriptions():
     pending_subs = []
@@ -295,6 +323,7 @@ def approve_subscription(subscription_id):
         cnx.close()
     return redirect(url_for('admin_subscriptions'))
 
+# --- REJECT SUBSCRIPTION ROUTE ---
 @app.route("/reject_subscription/<int:subscription_id>", methods=['POST'])
 def reject_subscription(subscription_id):
     cnx = get_db_connection()

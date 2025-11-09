@@ -33,12 +33,11 @@
         .btn-danger { background-color: #dc3545; color: white; }
         .btn-danger:hover { background-color: #c82333; }
         .no-items { color: #6c757d; font-size: 1.1em; }
-        .readonly-item { background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; padding: 1rem 1.5rem; }
-        .readonly-item.rejected span { color: #dc3545; text-decoration: line-through; }
         
-        /* UPDATED: Styles for the new "Live Item" layout */
+        /* Styles for the "Live" and "Rejected" items */
         .live-item { display: flex; justify-content: space-between; align-items: center; }
-        .live-item-info span { font-weight: 600; color: #28a745; } /* Green color for live */
+        .live-item-info span { font-weight: 600; color: #28a745; }
+        .rejected-item-info span { font-weight: 600; color: #dc3545; text-decoration: line-through; }
     </style>
 </head>
 <body>
@@ -114,8 +113,15 @@
             {% if rejected_topics %}
                 <ul class="item-list">
                     {% for topic in rejected_topics %}
-                    <li class="readonly-item rejected">
-                        <span>{{ topic.topic_name }}</span>
+                    <li class="item">
+                        <div class="item-header">
+                            <div class="rejected-item-info">
+                                <span>{{ topic.topic_name }}</span>
+                            </div>
+                            <form action="/approve/{{ topic.topic_id }}" method="POST" style="margin:0;">
+                                <button type="submit" class="btn btn-success">Re-approve</button>
+                            </form>
+                        </div>
                     </li>
                     {% endfor %}
                 </ul>

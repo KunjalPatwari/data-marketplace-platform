@@ -113,7 +113,7 @@ def topic_watcher_thread():
             )
             cursor = db_conn.cursor(dictionary=True)
 
-            # --- JOB 1: Provision New 'approved' Topics ---
+            # --- JOB 1: Provision New Topics ---
             cursor.execute("SELECT * FROM topics WHERE status = 'approved'")
             approved_topics = cursor.fetchall()
 
@@ -146,14 +146,18 @@ def topic_watcher_thread():
             active_products = cursor.fetchall()
             db_topic_names = {p['topic_name'] for p in active_products}
             
+            # --- !! START OF FIX !! ---
+            
             # 2. Get ALL *real, non-internal* topic names from the broker
-            broker_topic_metadata = admin_client.list_topics()
+            #    admin_client.list_topics() returns a LIST of strings, not a dict.
+            broker_topic_list = admin_client.list_topics() 
             broker_topic_names = set()
-            for topic_name, metadata in broker_topic_metadata.items():
-                # This check is CRITICAL. It prevents you from trying to
-                # delete internal Kafka topics like "__consumer_offsets"
-                if not metadata.is_internal:
+            for topic_name in broker_topic_list:
+                # We check for internal topics by their name prefix
+                if not topic_name.startswith('__'):
                     broker_topic_names.add(topic_name)
+
+            # --- !! END OF FIX !! ---
 
             # --- [RECONCILE PART A: CREATE MISSING TOPICS] ---
             # Find topics that are 'active' in DB but NOT on the broker

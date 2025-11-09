@@ -1,2 +1,59 @@
+# ===================================================================
+# Python / Flask / FastAPI
+# ===================================================================
+
+# Bytecode and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+# Never commit your environment folder!
 venv/
-node_4_admin/.env
+env/
+.venv/
+*/venv/
+*/env/
+*/.venv/
+
+# Flask/FastAPI instance folder
+# Often contains secret keys or local SQLite DBs
+instance/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+
+# ===================================================================
+# Secrets & Credentials (CRITICAL)
+# ===================================================================
+
+# Never, ever commit your secret keys or passwords!
+# This will find .env files in any subfolder.
+*.env
+.env
+.env.*
+
+# Common credential/config files
+credentials.json
+config.ini
+secrets.yml
+*.pem
+
+# ===================================================================
+# IDE & OS Specific
+# ===================================================================
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+

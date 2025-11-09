@@ -26,21 +26,31 @@ def get_db_connection():
         cnx = mysql.connector.connect(**DB_CONFIG)
         return cnx
     except mysql.connector.Error as err:
-        print(f"Error connecting to database: {err}")
+        # We will now print a MUCH clearer error
+        print("="*50)
+        print(f"DATABASE CONNECTION ERROR: {err}")
+        print("Please check your node_4_admin/.env file and MySQL server status.")
+        print("="*50)
         return None
+
+# --- DATABASE ERROR HANDLER ---
+# A simple page to show if the DB is down
+def db_error_page():
+    return "<h1>500 - Database Connection Error</h1><p>Could not connect to the database. Please check the server logs and your .env file.</p>", 500
 
 # --- HOME PAGE / MARKETPLACE ROUTE ---
 @app.route("/")
 def marketplace():
-    active_products = []
     cnx = get_db_connection()
-    if cnx:
-        cursor = cnx.cursor(dictionary=True)
-        query = "SELECT topic_id, topic_name FROM topics WHERE status = 'active'"
-        cursor.execute(query)
-        active_products = cursor.fetchall()
-        cursor.close()
-        cnx.close()
+    if not cnx:
+        return db_error_page() # <-- FIX
+        
+    cursor = cnx.cursor(dictionary=True)
+    query = "SELECT topic_id, topic_name FROM topics WHERE status = 'active'"
+    cursor.execute(query)
+    active_products = cursor.fetchall()
+    cursor.close()
+    cnx.close()
     
     return render_template('index.html', products=active_products)
 
@@ -57,20 +67,22 @@ def register_topic():
         output_key = request.form['output_key']
         
         cnx = get_db_connection()
-        if cnx:
-            cursor = cnx.cursor()
-            query = """
-                INSERT INTO topics (topic_name, status, source_file, source_column, output_key) 
-                VALUES (%s, 'pending', %s, %s, %s)
-            """
-            try:
-                cursor.execute(query, (topic_name, source_file, source_column, output_key))
-                cnx.commit()
-            except mysql.connector.Error as err:
-                print(f"Error registering topic: {err}")
-            
-            cursor.close()
-            cnx.close()
+        if not cnx:
+            return db_error_page() # <-- FIX
+
+        cursor = cnx.cursor()
+        query = """
+            INSERT INTO topics (topic_name, status, source_file, source_column, output_key) 
+            VALUES (%s, 'pending', %s, %s, %s)
+        """
+        try:
+            cursor.execute(query, (topic_name, source_file, source_column, output_key))
+            cnx.commit()
+        except mysql.connector.Error as err:
+            print(f"Error registering topic: {err}")
+        
+        cursor.close()
+        cnx.close()
         
         return render_template('register_success.html')
 
@@ -79,7 +91,7 @@ def register_topic():
 def subscribe_to_topic(topic_id):
     cnx = get_db_connection()
     if not cnx:
-        return "Database connection failed", 500
+        return db_error_page() # <-- FIX
     
     cursor = cnx.cursor(dictionary=True)
     
@@ -111,51 +123,50 @@ def subscribe_to_topic(topic_id):
         else:
             return "This product is not available for subscription.", 404
 
-# --- CONSUMER DASHBOARD PAGE (*** UPDATED ***) ---
+# --- CONSUMER DASHBOARD PAGE ---
 @app.route("/my_subscriptions")
 def my_subscriptions():
-    """
-    Shows the consumer their LATEST pending, approved, and rejected subscriptions.
-    """
+    cnx = get_db_connection()
+    if not cnx:
+        return db_error_page() # <-- FIX
+
     pending_subs = []
     approved_subs = []
     rejected_subs = []
 
-    cnx = get_db_connection()
-    if cnx:
-        cursor = cnx.cursor(dictionary=True)
-        # UPDATED QUERY: We now also fetch S.subscription_id to allow unsubscribing
-        query = """
-            SELECT T.topic_name, S.status, S.subscription_id
-            FROM user_subscriptions AS S
-            JOIN topics AS T ON S.topic_id = T.topic_id
-            INNER JOIN (
-                SELECT topic_id, MAX(subscription_id) AS max_id
-                FROM user_subscriptions
-                GROUP BY topic_id
-            ) AS S_latest ON S.topic_id = S_latest.topic_id AND S.subscription_id = S_latest.max_id
-            ORDER BY S.subscription_id DESC
-        """
+    cursor = cnx.cursor(dictionary=True)
+    query = """
+        SELECT T.topic_name, S.status, S.subscription_id
+        FROM user_subscriptions AS S
+        JOIN topics AS T ON S.topic_id = T.topic_id
+        INNER JOIN (
+            SELECT topic_id, MAX(subscription_id) AS max_id
+            FROM user_subscriptions
+            GROUP BY topic_id
+        ) AS S_latest ON S.topic_id = S_latest.topic_id AND S.subscription_id = S_latest.max_id
+        ORDER BY S.subscription_id DESC
+    """
+    
+    try:
+        cursor.execute(query)
+        all_subs = cursor.fetchall()
         
-        try:
-            cursor.execute(query)
-            all_subs = cursor.fetchall()
-            
-            for sub in all_subs:
-                if sub['status'] == 'pending':
-                    pending_subs.append(sub)
-                elif sub['status'] == 'approved':
-                    approved_subs.append(sub)
-                elif sub['status'] == 'rejected':
-                    rejected_subs.append(sub)
-            
-            cursor.close()
-            cnx.close()
+        for sub in all_subs:
+            if sub['status'] == 'pending':
+                pending_subs.append(sub)
+            elif sub['status'] == 'approved':
+                approved_subs.append(sub)
+            elif sub['status'] == 'rejected':
+                rejected_subs.append(sub)
         
-        except mysql.connector.Error as err:
-            print(f"my_subscriptions error: {err}")
-            if cursor: cursor.close()
-            if cnx: cnx.close()
+        cursor.close()
+        cnx.close()
+    
+    except mysql.connector.Error as err:
+        print(f"my_subscriptions error: {err}")
+        if cursor: cursor.close()
+        if cnx: cnx.close()
+        return db_error_page() # <-- FIX
     
     return render_template('my_subscriptions.html', 
                            pending_subs=pending_subs,
@@ -163,83 +174,82 @@ def my_subscriptions():
                            rejected_subs=rejected_subs)
 
 
-# --- *** NEW *** CONSUMER UNSUBSCRIBE ROUTE ---
+# --- CONSUMER UNSUBSCRIBE ROUTE ---
 @app.route("/unsubscribe/<int:subscription_id>", methods=['POST'])
 def unsubscribe(subscription_id):
-    """
-    Deletes a subscription record.
-    This allows a consumer to "unsubscribe".
-    """
     cnx = get_db_connection()
-    if cnx:
-        try:
-            cursor = cnx.cursor()
-            # We simply delete the subscription.
-            query = "DELETE FROM user_subscriptions WHERE subscription_id = %s"
-            cursor.execute(query, (subscription_id,))
-            cnx.commit()
-            print(f"Subscription {subscription_id} deleted (unsubscribed).")
-            cursor.close()
-            cnx.close()
-        except mysql.connector.Error as err:
-            print(f"Error unsubscribing: {err}")
-            if cursor: cursor.close()
-            if cnx: cnx.close()
+    if not cnx:
+        return db_error_page() # <-- FIX
+    try:
+        cursor = cnx.cursor()
+        query = "DELETE FROM user_subscriptions WHERE subscription_id = %s"
+        cursor.execute(query, (subscription_id,))
+        cnx.commit()
+        print(f"Subscription {subscription_id} deleted (unsubscribed).")
+        cursor.close()
+        cnx.close()
+    except mysql.connector.Error as err:
+        print(f"Error unsubscribing: {err}")
+        if cursor: cursor.close()
+        if cnx: cnx.close()
     
-    # Send them back to their dashboard to see the change
     return redirect(url_for('my_subscriptions'))
 
 
 # --- API ENDPOINT FOR CONSUMER SCRIPT (NODE 3) ---
 @app.route("/api/subscriptions")
 def get_subscriptions():
-    topic_list = []
     cnx = get_db_connection()
-    if cnx:
-        cursor = cnx.cursor(dictionary=True)
-        query = """
-            SELECT T.topic_name
-            FROM topics AS T
-            JOIN user_subscriptions AS S ON T.topic_id = S.topic_id
-            WHERE T.status = 'active' AND S.status = 'approved'
-        """
-        try:
-            cursor.execute(query)
-            results = cursor.fetchall()
-            topic_list = [row['topic_name'] for row in results]
-        except mysql.connector.Error as err:
-            print(f"API Error: {err}")
-            
-        cursor.close()
-        cnx.close()
+    if not cnx:
+        return {"error": "Database connection failed"}, 500 # <-- FIX
+        
+    topic_list = []
+    cursor = cnx.cursor(dictionary=True)
+    query = """
+        SELECT T.topic_name
+        FROM topics AS T
+        JOIN user_subscriptions AS S ON T.topic_id = S.topic_id
+        WHERE T.status = 'active' AND S.status = 'approved'
+    """
+    try:
+        cursor.execute(query)
+        results = cursor.fetchall()
+        topic_list = [row['topic_name'] for row in results]
+    except mysql.connector.Error as err:
+        print(f"API Error: {err}")
+    
+    cursor.close()
+    cnx.close()
     
     return { "subscribed_topics": topic_list }
 
 # --- ADMIN DASHBOARD ROUTE ---
 @app.route("/admin")
 def admin_dashboard():
+    cnx = get_db_connection()
+    if not cnx:
+        return db_error_page() # <-- FIX
+
     pending_topics = []
     live_topics = []
     rejected_topics = []
     
-    cnx = get_db_connection()
-    if cnx:
-        cursor = cnx.cursor(dictionary=True)
-        
-        query_pending = "SELECT * FROM topics WHERE status = 'pending' ORDER BY created_at DESC"
-        cursor.execute(query_pending)
-        pending_topics = cursor.fetchall()
-        
-        query_live = "SELECT * FROM topics WHERE status IN ('approved', 'active') ORDER BY created_at DESC"
-        cursor.execute(query_live)
-        live_topics = cursor.fetchall()
-        
-        query_rejected = "SELECT * FROM topics WHERE status = 'rejected' ORDER BY created_at DESC"
-        cursor.execute(query_rejected)
-        rejected_topics = cursor.fetchall()
-        
-        cursor.close()
-        cnx.close()
+    cursor = cnx.cursor(dictionary=True)
+    
+    query_pending = "SELECT * FROM topics WHERE status = 'pending' ORDER BY created_at DESC"
+    cursor.execute(query_pending)
+    pending_topics = cursor.fetchall()
+    
+    query_live = "SELECT * FROM topics WHERE status IN ('approved', 'active') ORDER BY created_at DESC"
+    cursor.execute(query_live)
+    live_topics = cursor.fetchall()
+    
+    query_rejected = "SELECT * FROM topics WHERE status = 'rejected' ORDER BY created_at DESC"
+    cursor.execute(query_rejected)
+    rejected_topics = cursor.fetchall()
+    
+    cursor.close()
+    cnx.close()
     
     return render_template('admin.html', 
                            pending_topics=pending_topics, 
@@ -250,40 +260,44 @@ def admin_dashboard():
 @app.route("/approve/<int:topic_id>", methods=['POST'])
 def approve_topic(topic_id):
     cnx = get_db_connection()
-    if cnx:
-        cursor = cnx.cursor()
-        query = "UPDATE topics SET status = 'approved' WHERE topic_id = %s"
-        cursor.execute(query, (topic_id,))
-        cnx.commit()
-        cursor.close()
-        cnx.close()
+    if not cnx:
+        return db_error_page() # <-- FIX
+        
+    cursor = cnx.cursor()
+    query = "UPDATE topics SET status = 'approved' WHERE topic_id = %s"
+    cursor.execute(query, (topic_id,))
+    cnx.commit()
+    cursor.close()
+    cnx.close()
     return redirect(url_for('admin_dashboard'))
 
-# --- REJECT/DEACTIVATE TOPIC ROUTE (*** UPDATED NAME FOR CLARITY ***) ---
-# This route now handles BOTH rejecting a pending topic
-# AND deactivating a live topic.
+# --- REJECT/DEACTIVATE TOPIC ROUTE ---
 @app.route("/reject_topic/<int:topic_id>", methods=['POST'])
 def reject_topic(topic_id):
-    """Updates a topic's status to 'rejected'."""
     cnx = get_db_connection()
-    if cnx:
-        cursor = cnx.cursor()
-        query = "UPDATE topics SET status = 'rejected' WHERE topic_id = %s"
-        try:
-            cursor.execute(query, (topic_id,))
-            cnx.commit()
-            print(f"Topic {topic_id} REJECTED/DEACTIVATED!")
-        except mysql.connector.Error as err:
-            print(f"Error rejecting topic: {err}")
-        
-        cursor.close()
-        cnx.close()
+    if not cnx:
+        return db_error_page() # <-- FIX
+
+    cursor = cnx.cursor()
+    query = "UPDATE topics SET status = 'rejected' WHERE topic_id = %s"
+    try:
+        cursor.execute(query, (topic_id,))
+        cnx.commit()
+    except mysql.connector.Error as err:
+        print(f"Error rejecting topic: {err}")
+    
+    cursor.close()
+    cnx.close()
     
     return redirect(url_for('admin_dashboard'))
 
 # --- ADMIN SUBSCRIPTION APPROVAL ROUTES ---
 @app.route("/admin/subscriptions")
 def admin_subscriptions():
+    cnx = get_db_connection()
+    if not cnx:
+        return db_error_page() # <-- FIX
+
     pending_subs = []
     approved_subs = []
     rejected_subs = []
@@ -294,17 +308,15 @@ def admin_subscriptions():
         JOIN topics AS T ON S.topic_id = T.topic_id
     """
     
-    cnx = get_db_connection()
-    if cnx:
-        cursor = cnx.cursor(dictionary=True)
-        cursor.execute(f"{query_base} WHERE S.status = 'pending'")
-        pending_subs = cursor.fetchall()
-        cursor.execute(f"{query_base} WHERE S.status = 'approved'")
-        approved_subs = cursor.fetchall()
-        cursor.execute(f"{query_base} WHERE S.status = 'rejected'")
-        rejected_subs = cursor.fetchall()
-        cursor.close()
-        cnx.close()
+    cursor = cnx.cursor(dictionary=True)
+    cursor.execute(f"{query_base} WHERE S.status = 'pending'")
+    pending_subs = cursor.fetchall()
+    cursor.execute(f"{query_base} WHERE S.status = 'approved'")
+    approved_subs = cursor.fetchall()
+    cursor.execute(f"{query_base} WHERE S.status = 'rejected'")
+    rejected_subs = cursor.fetchall()
+    cursor.close()
+    cnx.close()
     
     return render_template('admin_subs.html', 
                            pending_subs=pending_subs, 
@@ -314,26 +326,30 @@ def admin_subscriptions():
 @app.route("/approve_subscription/<int:subscription_id>", methods=['POST'])
 def approve_subscription(subscription_id):
     cnx = get_db_connection()
-    if cnx:
-        cursor = cnx.cursor()
-        query = "UPDATE user_subscriptions SET status = 'approved' WHERE subscription_id = %s"
-        cursor.execute(query, (subscription_id,))
-        cnx.commit()
-        cursor.close()
-        cnx.close()
+    if not cnx:
+        return db_error_page() # <-- FIX
+        
+    cursor = cnx.cursor()
+    query = "UPDATE user_subscriptions SET status = 'approved' WHERE subscription_id = %s"
+    cursor.execute(query, (subscription_id,))
+    cnx.commit()
+    cursor.close()
+    cnx.close()
     return redirect(url_for('admin_subscriptions'))
 
 # --- REJECT SUBSCRIPTION ROUTE ---
 @app.route("/reject_subscription/<int:subscription_id>", methods=['POST'])
 def reject_subscription(subscription_id):
     cnx = get_db_connection()
-    if cnx:
-        cursor = cnx.cursor()
-        query = "UPDATE user_subscriptions SET status = 'rejected' WHERE subscription_id = %s"
-        cursor.execute(query, (subscription_id,))
-        cnx.commit()
-        cursor.close()
-        cnx.close()
+    if not cnx:
+        return db_error_page() # <-- FIX
+        
+    cursor = cnx.cursor()
+    query = "UPDATE user_subscriptions SET status = 'rejected' WHERE subscription_id = %s"
+    cursor.execute(query, (subscription_id,))
+    cnx.commit()
+    cursor.close()
+    cnx.close()
     return redirect(url_for('admin_subscriptions'))
 
 # --- RUN THE APP ---

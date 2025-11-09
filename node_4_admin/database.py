@@ -1,34 +1,45 @@
 import mysql.connector
 from mysql.connector import errorcode
+from dotenv import load_dotenv
+import os
 
-# --- YOUR DATABASE CONFIGURATION ---
-# IMPORTANT: Replace with the passwords you created!
+# --- LOAD ENVIRONMENT VARIABLES ---
+# This script also needs the .env file to run
+load_dotenv() 
+
+# --- YOUR DATABASE CONFIGURATION (NOW SECURE) ---
 DB_CONFIG = {
-    'user': 'flask_app',
-    'password': 'Flask@123',  # <-- REPLACE THIS
-    'host': 'localhost',
-    'database': 'marketplace_db'
+    'user': os.getenv('DB_USER'),
+    'password': os.getenv('DB_PASS'),
+    'host': os.getenv('DB_HOST'),
+    'database': os.getenv('DB_NAME')
 }
 
-# --- TABLE DEFINITIONS ---
+# --- FINAL TABLE DEFINITIONS ---
 TABLES = {}
 
+# This is the final "topics" schema
 TABLES['topics'] = (
     "CREATE TABLE `topics` ("
     "  `topic_id` int(11) NOT NULL AUTO_INCREMENT,"
     "  `topic_name` varchar(255) NOT NULL UNIQUE,"
     "  `status` enum('pending', 'approved', 'active', 'rejected') NOT NULL DEFAULT 'pending',"
-    "  `owner_user` varchar(100) NOT NULL,"
     "  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+    # --- The 3 new recipe columns ---
+    "  `source_file` varchar(255) NOT NULL,"
+    "  `source_column` varchar(255) NOT NULL,"
+    "  `output_key` varchar(255) NOT NULL,"
     "  PRIMARY KEY (`topic_id`)"
     ") ENGINE=InnoDB")
 
+# This is the final "user_subscriptions" schema
 TABLES['user_subscriptions'] = (
     "CREATE TABLE `user_subscriptions` ("
     "  `subscription_id` int(11) NOT NULL AUTO_INCREMENT,"
-    "  `user_name` varchar(100) NOT NULL,"
     "  `topic_id` int(11) NOT NULL,"
     "  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+    # --- The status column for approvals ---
+    "  `status` enum('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',"
     "  PRIMARY KEY (`subscription_id`),"
     "  KEY `topic_id` (`topic_id`),"
     "  FOREIGN KEY (`topic_id`) REFERENCES `topics` (`topic_id`) ON DELETE CASCADE"
@@ -58,7 +69,7 @@ def create_tables():
 
     except mysql.connector.Error as err:
         if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-            print("Something is wrong with your username or password")
+            print("Something is wrong with your username or password in .env")
         elif err.errno == errorcode.ER_BAD_DB_ERROR:
             print("Database does not exist")
         else:
